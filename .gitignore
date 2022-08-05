@@ -1,0 +1,14 @@
+*
+!/**/
+!*.*
+!makefile
+!LICENSE
+!README.md
+
+*.o
+*.a
+.DS_STORE
+
+**/*.o
+
+build/

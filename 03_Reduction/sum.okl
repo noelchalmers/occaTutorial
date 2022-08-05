@@ -1,0 +1,86 @@
+// Defines for MAX_BLOCKS and BLOCK_SIZE will be placed here
+
+@kernel void sum(const int N,
+                 const int Nblocks,
+                 @restrict const double *x,
+                 @restrict       double *scratch,
+                 @restrict       double *sum) {
+
+  /*
+  The first @outer loop reduces a chuck of data in a block
+  and writes the partial sum to a location in the scratch
+  buffer
+  */
+  for (int b = 0; b < Nblocks; ++b; @outer(0)) {
+    /*
+    @shared memory is a block of memory that is shared across
+    all threads in the @inner blocks, but is not shared across
+    @outer iterations. For CUDA/HIP modes, @shared memory maps to
+    __shared__.
+    */
+    @shared double s_sum[BLOCK_SIZE];
+
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)){
+      int id = t + b*BLOCK_SIZE;
+
+      double r_sum = 0.0;
+      while (id<N) {
+        r_sum += x[id];
+        id += BLOCK_SIZE*Nblocks;
+      }
+      s_sum[t] = r_sum;
+    }
+
+    /*
+    Since the BLOCK_SIZE may be larger than the phyical SIMD
+    width of the device, the full set of @inner loops must complete
+    in order to guarentee that the @shared memory is filled
+
+    In GPUs with additional SIMT execution (i.e. multiple warps/wavefronts
+    in a block) a synchronization primitive is required to ensure the
+    @shared memory is coherent. For CUDA/HIP, this primitive is
+    __syncthreads(). OCCA automatically adds this sync between @inner
+    blocks when translating the OKL source.
+    */
+
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<128) s_sum[t] += s_sum[t+128];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 64) s_sum[t] += s_sum[t+ 64];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 32) s_sum[t] += s_sum[t+ 32];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 16) s_sum[t] += s_sum[t+ 16];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  8) s_sum[t] += s_sum[t+  8];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  4) s_sum[t] += s_sum[t+  4];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  2) s_sum[t] += s_sum[t+  2];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  1) scratch[b] = s_sum[0] + s_sum[1];
+  }
+
+  /*
+  @kernel functions can contain multiple complete @outer blocks
+  When translating the OKL, OCCA will spilt each set of @outer
+  blocks to into seperate kernels and launch them in sequence
+  */
+
+  // The second @outer block reduces the partial sum to the final value
+  for (int b = 0; b < 1; ++b; @outer(0)) {
+    @shared double s_sum[BLOCK_SIZE];
+
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)){
+      int id = t;
+
+      double r_sum = 0.0;
+      while (id<Nblocks) {
+        r_sum += scratch[id];
+        id += BLOCK_SIZE;
+      }
+      s_sum[t] = r_sum;
+    }
+
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<128) s_sum[t] += s_sum[t+128];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 64) s_sum[t] += s_sum[t+ 64];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 32) s_sum[t] += s_sum[t+ 32];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t< 16) s_sum[t] += s_sum[t+ 16];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  8) s_sum[t] += s_sum[t+  8];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  4) s_sum[t] += s_sum[t+  4];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  2) s_sum[t] += s_sum[t+  2];
+    for(int t=0;t<BLOCK_SIZE;++t;@inner(0)) if(t<  1) *sum = s_sum[0] + s_sum[1];
+  }
+}

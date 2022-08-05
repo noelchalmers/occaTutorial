@@ -1,0 +1,35 @@
+#define BLOCK_SIZE 256
+
+// A @kernel attribute marks function as a device kernel
+@kernel void addVectors(const int entries,
+                        @restrict const float *a,
+                        @restrict const float *b,
+                        @restrict       float *ab) {
+
+  /*
+  OKL source is mapped to each backend using annotated loops.
+  Loops can be annotated as one of
+    @outer(2), @outer(1), @outer(0)
+    @inner(2), @inner(1), @inner(0)
+  @outer loops are typcally large, looping over the different segments
+  of a parallel computation. @inner loops are small, and are typically mapped
+  into the backend's SIMD execution. For GPU backends such as CUDA/HIP,
+  @outer(0,1,2) loops are mapped to the x,y,z grid of threadblocks, and
+  @inner(0,1,2) loops are mapped the threadblock size, blockDim.x,y,z
+
+  The @tile attribute gives a compact way to decompose a single loop.
+  In this example, the for loop with the @tile attribute is equivalent to
+
+  for (int n_o = 0; n_o < entries; n_o+=BLOCK_SIZE; @outer(0)) {
+    for (int n_i = 0; n_i < BLOCK_SIZE; ++n_i; @inner(0)) {
+      int n = n_o + n_i;
+      if (n < entries) {
+        ...
+      }
+    }
+  }
+  */
+  for (int n = 0; n < entries; ++n; @tile(BLOCK_SIZE, @outer(0), @inner(0))) {
+    ab[n] = a[n] + b[n];
+  }
+}

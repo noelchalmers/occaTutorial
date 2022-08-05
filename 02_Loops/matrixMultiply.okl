@@ -1,0 +1,33 @@
+// Defines for M_TILE_SIZE and N_TILE_SIZE will be placed here
+
+@kernel void matrixMultiply(const int N,
+                            const int M,
+                            const int K,
+                            @restrict const float *A,
+                            const int LDA,
+                            @restrict const float *B,
+                            const int LDB,
+                            @restrict       float *C,
+                            const int LDC) {
+
+  for (int n_o = 0; n_o < N; n_o+=N_TILE_SIZE; @outer(1)) {
+    for (int m_o = 0; m_o < M; m_o+=M_TILE_SIZE; @outer(0)) {
+
+      for (int n_i = 0; n_i < N_TILE_SIZE; ++n_i; @inner(1)) {
+        for (int m_i = 0; m_i < M_TILE_SIZE; ++m_i; @inner(0)) {
+
+          const int n = n_o + n_i;
+          const int m = m_o + m_i;
+
+          if (n < N && m < M) {
+            float r_C = 0.0;
+            for (int k = 0; k < K; ++k) {
+              r_C = A[m + k * LDA] * B[k + n * LDB];
+            }
+            C[m + n * LDC] = r_C;
+          }
+        }
+      }
+    }
+  }
+}
