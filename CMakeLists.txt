@@ -19,3 +19,12 @@ add_subdirectory(02_Loops)
 add_subdirectory(03_Reduction)
 add_subdirectory(04_Streams)
 add_subdirectory(05_Inline_Kernels)
+
+if (OCCA_HIP_ENABLED)
+  list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm/)
+
+  # Find HIP package
+  find_package(HIP REQUIRED)
+
+  add_subdirectory(06_Native_Interop)
+endif()
