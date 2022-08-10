@@ -1,0 +1,21 @@
+#define BLOCK_SIZE 256
+
+@kernel void addVectors(const int entries,
+                        @restrict const float *a,
+                        @restrict const float *b,
+                        @restrict       float *ab) {
+
+  for (int n = 0; n < entries; ++n; @tile(BLOCK_SIZE, @outer(0), @inner(0))) {
+    ab[n] = a[n] + b[n];
+  }
+}
+
+@kernel void multVectors(const int entries,
+                        @restrict const float *a,
+                        @restrict const float *b,
+                        @restrict       float *ab) {
+
+  for (int n = 0; n < entries; ++n; @tile(BLOCK_SIZE, @outer(0), @inner(0))) {
+    ab[n] = a[n]*b[n];
+  }
+}
